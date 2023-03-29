@@ -20,6 +20,7 @@ pub enum EngineMessage<Exe: Executor> {
     Nack(MessageIdData),
     UnackedRedelivery,
     GetConnection(oneshot::Sender<Arc<Connection<Exe>>>),
+    Pong,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]

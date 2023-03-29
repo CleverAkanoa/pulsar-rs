@@ -48,6 +48,7 @@ pub struct ConsumerEngine<Exe: Executor> {
     dead_letter_policy: Option<DeadLetterPolicy>,
     options: ConsumerOptions,
     drop_signal: Option<oneshot::Sender<()>>,
+    reconnection: bool,
 }
 
 impl<Exe: Executor> ConsumerEngine<Exe> {
@@ -90,6 +91,7 @@ impl<Exe: Executor> ConsumerEngine<Exe> {
             dead_letter_policy,
             options,
             drop_signal: Some(drop_signal),
+            reconnection: false,
         }
     }
 
@@ -281,6 +283,10 @@ impl<Exe: Executor> ConsumerEngine<Exe> {
                                      channel before receiving"
                     );
                 });
+                true
+            }
+            Some(EngineMessage::Pong) => {
+                debug!("PING PONG");
                 true
             }
         }
@@ -693,6 +699,12 @@ impl<Exe: Executor> ConsumerEngine<Exe> {
 
     #[cfg_attr(feature = "telemetry", tracing::instrument(skip_all))]
     async fn reconnect(&mut self) -> Result<(), Error> {
+        if self.reconnection {
+            debug!("Already connecting");
+            return Ok(());
+        }
+        self.reconnection = true;
+
         debug!("reconnecting consumer for topic: {}", self.topic);
         tokio::time::sleep(Duration::from_secs(2)).await;
         if let Some(prev_single) = std::mem::replace(&mut self.drop_signal, None) {
@@ -741,6 +753,7 @@ impl<Exe: Executor> ConsumerEngine<Exe> {
             }
         }
         tokio::time::sleep(Duration::from_secs(2)).await;
+        self.reconnection = false;
 
         self.messages_rx = Some(messages);
 
